@@ -73,10 +73,11 @@ public class GenerateToken implements RequestHandler<SNSEvent, Object> {
             final String SUBJECT = "Password reset";
 
             // The HTML body for the email.
-            final String HTMLBODY = "<p><a href='donotreply@csye6225-fall2017-merchantn.me/reset?email="+FROM+"&token="+token+"'></a></p>";
+            final String HTMLBODY = "<p><a href='donotreply@csye6225-fall2017-merchantn.me/reset?email="+TO+"&token="+token+"'></a></p>";
 
-            final String TEXTBODY = "donotreply@csye6225-fall2017-merchantn.me/reset?email="+FROM+"&token="+token;
-
+            context.getLogger().log("HTMLBODY"+HTMLBODY);
+            final String TEXTBODY = "donotreply@csye6225-fall2017-merchantn.me/reset?email="+TO+"&token="+token;
+            context.getLogger().log("HTMLBODY"+TEXTBODY);
             AmazonSimpleEmailService sesClient = AmazonSimpleEmailServiceClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
 
             SendEmailRequest sesRequest = new SendEmailRequest()
