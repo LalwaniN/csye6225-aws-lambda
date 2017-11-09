@@ -35,11 +35,10 @@ public class LogEvent implements RequestHandler<SNSEvent, Object> {
 
     timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss").format(Calendar.getInstance().getTime());
 
-    context.getLogger().log("Invocation completed: " + timeStamp);
     try {
       context.getLogger().log("trying to connect to dynamodb");
       init();
-      long unixTime = Instant.now().getEpochSecond()+120;
+      long unixTime = Instant.now().getEpochSecond()+20*60;
       Table table = dynamoDB.getTable("csye6225");
 
       Item item = table.getItem("id", request.getRecords().get(0).getSNS().getMessage());
@@ -48,9 +47,45 @@ public class LogEvent implements RequestHandler<SNSEvent, Object> {
         Item itemPut = new Item()
                 .withPrimaryKey("id", request.getRecords().get(0).getSNS().getMessage())
                 .withString("token", context.getAwsRequestId())
-                .withNumber("tokenExpiry", unixTime);
+                .withNumber("passwordTokenExpiry", unixTime);
 
         table.putItem(itemPut);
+
+          try {
+              String FROM = "donotreply@csye6225-fall2017-lalwanin.me";
+              String TO = request.getRecords().get(0).getSNS().getMessage();
+              String token = request.getRecords().get(0).getSNS().getMessageId();
+              AmazonSimpleEmailService client =
+                      AmazonSimpleEmailServiceClientBuilder.standard()
+                              .withRegion(Regions.US_EAST_1).build();
+              SendEmailRequest req = new SendEmailRequest()
+                      .withDestination(
+                              new Destination()
+                                      .withToAddresses(TO))
+                      .withMessage(
+                              new Message()
+                                      .withBody(
+                                              new Body()
+                                                      .withHtml(
+                                                              new Content()
+                                                                      .withCharset(
+                                                                              "UTF-8")
+                                                                      .withData(
+                                                                              "Please click on the below link to reset the password<br/>"+
+                                                                              "<p><a href='#'>https://csye6225-fall2017-lalwanin.me/reset?email="+TO+"&token="+token+"</a></p>"))
+                                      )
+                                      .withSubject(
+                                              new Content().withCharset("UTF-8")
+                                                      .withData("Password Reset Link")))
+                      .withSource(FROM);
+              SendEmailResult response = client.sendEmail(req);
+              context.getLogger().log ("Email sent!");
+          } catch (Exception ex) {
+              context.getLogger().log ("The email was not sent. Error message: "
+                      + ex.getMessage());
+          }
+
+
       }
     }
 
@@ -70,50 +105,7 @@ public class LogEvent implements RequestHandler<SNSEvent, Object> {
       context.getLogger().log(e.getMessage());
     }
 
-      try {
-         String FROM = "donotreply@csye6225-fall2017-lalwanin.me";
-         String TO = request.getRecords().get(0).getSNS().getMessage();
-         String SUBJECT = "Amazon SES test (AWS SDK for Java)";
-         String HTMLBODY = "<h1>Amazon SES test (AWS SDK for Java)</h1>"
-                  + "<p>This email was sent with <a href='https://aws.amazon.com/ses/'>"
-                  + "Amazon SES</a> using the <a href='https://aws.amazon.com/sdk-for-java/'>"
-                  + "AWS SDK for Java</a>";
-         String TEXTBODY = "This email was sent through Amazon SES "
-                  + "using the AWS SDK for Java.";
-          AmazonSimpleEmailService client =
-                  AmazonSimpleEmailServiceClientBuilder.standard()
-                          .withRegion(Regions.US_EAST_1).build();
-          SendEmailRequest req = new SendEmailRequest()
-                  .withDestination(
-                          new Destination()
-                                  .withToAddresses(TO))
-                  .withMessage(
-                          new Message()
-                                  .withBody(
-                                          new Body()
-                                                  .withHtml(
-                                                          new Content()
-                                                                  .withCharset(
-                                                                          "UTF-8")
-                                                                  .withData(
-                                                                          "This message body contains HTML formatting"))
-                                                  .withText(
-                                                          new Content()
-                                                                  .withCharset(
-                                                                          "UTF-8")
-                                                                  .withData(
-                                                                          "This is the message body in text format.")))
-                                  .withSubject(
-                                          new Content().withCharset("UTF-8")
-                                                  .withData("Test email")))
-                  .withSource(FROM);
-          SendEmailResult response = client.sendEmail(req);
-          context.getLogger().log ("Email sent!");
-      } catch (Exception ex) {
-          context.getLogger().log ("The email was not sent. Error message: "
-                  + ex.getMessage());
-      }
-
+      context.getLogger().log("Invocation completed: " + timeStamp);
 
     return null;
   }
