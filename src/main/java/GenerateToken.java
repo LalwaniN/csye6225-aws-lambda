@@ -26,66 +26,66 @@ public class GenerateToken implements RequestHandler<SNSEvent, Object> {
         context.getLogger().log(request.getRecords().get(0).getSNS().getMessage());
         timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss").format(Calendar.getInstance().getTime());
         context.getLogger().log("Invocation completed: " + timeStamp);
+        String id = request.getRecords().get(0).getSNS().getMessage();
+        String token = context.getAwsRequestId();
 
-//        AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard()
-//                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration("http://localhost:8000", "us-west-2"))
-//                .build();
+        insertRecord(context,id, token);
+        sendEmail(context, id, token);
 
+        context.getLogger().log("Invocation completed: " + timeStamp);
+
+        return null;
+
+    }
+
+    public void insertRecord( Context context, String id, String token)
+    {
         AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard().withRegion("us-east-1").build();
         DynamoDB dynamoDB = new DynamoDB(client);
 
-        // DynamoDB dynamoDB = new DynamoDB(Regions.US_EAST_1);
+        context.getLogger().log("Trying to insert item in Dynamo DB");
 
-        context.getLogger().log("Trying to insert item");
         Table table = dynamoDB.getTable("csye6225");
-        context.getLogger().log("Dynamo db Table" + table);
-        String id = request.getRecords().get(0).getSNS().getMessage();
+
+        context.getLogger().log("Using Dynamo db Table" + table);
+
         try {
-            Item item = new Item().withPrimaryKey("id", id).with("Token", context.getAwsRequestId()).with("ttl", System.currentTimeMillis() / 1000L + (3 * 60 * 1000));
-            //   table.putItem(new Item().withPrimaryKey("id", id).withString("token", context.getAwsRequestId()).with("ttl",System.currentTimeMillis() / 1000L + (3 * 60 * 1000)));
+            Item item = new Item().withPrimaryKey("id", id).with("Token", context.getAwsRequestId()).with("passwordTokenExpiry", System.currentTimeMillis() / 1000L + (20 * 60));
             table.putItem(item);
-            //System.out.println("PutItem succeeded: " + id );
             context.getLogger().log("PutItem succeeded: " + id);
         } catch (Exception e) {
             System.err.println("Unable to add id: " + id);
             context.getLogger().log("Unable to add id: " + id);
             context.getLogger().log(e.getMessage());
-            //System.err.println(e.getMessage());
-
 
         }
 
+    }
+
+    public void sendEmail(Context context, String id, String token)
+    {
         final String FROM = "donotreply@csye6225-fall2017-merchantn.me";
 
-        final String TO = "merchant.n@husky.neu.edu";
+        final String TO = id;
 
         try {
             // The subject line for the email.
             final String SUBJECT = "Password reset";
 
             // The HTML body for the email.
-            final String HTMLBODY = "<a href='https://aws.amazon.com/sdk-for-java/'>"
-                    + "AWS SDK for Java</a>";
+            final String HTMLBODY = "<p><a href='donotreply@csye6225-fall2017-merchantn.me/reset?email="+FROM+"&token="+token+"'></a></p>";
 
-            // The email body for recipients with non-HTML email clients.
-            final String TEXTBODY = "This email was sent through Amazon SES "
-                    + "using the AWS SDK for Java.";
+            final String TEXTBODY = "donotreply@csye6225-fall2017-merchantn.me/reset?email="+FROM+"&token="+token;
 
-
-            AmazonSimpleEmailService sesClient =
-                    AmazonSimpleEmailServiceClientBuilder.standard()
-                            // Replace US_WEST_2 with the AWS Region you're using for
-                            // Amazon SES.
-                            .withRegion(Regions.US_EAST_1).build();
-
+            AmazonSimpleEmailService sesClient = AmazonSimpleEmailServiceClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
 
             SendEmailRequest sesRequest = new SendEmailRequest()
                     .withDestination(
                             new Destination().withToAddresses(TO))
                     .withMessage(new Message()
                             .withBody(new Body()
-                                    .withHtml(new Content()
-                                            .withCharset("UTF-8").withData(HTMLBODY))
+                                            .withHtml(new Content()
+                                                    .withCharset("UTF-8").withData(HTMLBODY))
                                     .withText(new Content()
                                             .withCharset("UTF-8").withData(TEXTBODY)))
                             .withSubject(new Content()
@@ -93,21 +93,14 @@ public class GenerateToken implements RequestHandler<SNSEvent, Object> {
                     .withSource(FROM);
 
             sesClient.sendEmail(sesRequest);
+            context.getLogger().log("Email Sent");
+
         }
         catch (Exception e)
         {
             System.out.println("The email was not sent. Error message: "
                     + e.getMessage());
         }
-
-        context.getLogger().log("Invocation completed: " + timeStamp);
-
-
-        return null;
-
     }
-
-
-
 
 }
